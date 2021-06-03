@@ -5,6 +5,15 @@ import pathlib
 import typer
 import xarray as xr
 
+try:
+    import cfgrib  # type: ignore  # pylint: disable=unused-import  # noqa
+
+    IS_GRIB_AVAILABLE = True
+except ImportError:
+    IS_GRIB_AVAILABLE = False
+except RuntimeError:
+    IS_GRIB_AVAILABLE = False
+
 app = typer.Typer(add_completion=False, invoke_without_command=False, add_help_option=True)
 
 
@@ -47,7 +56,49 @@ def echo_dataset(
         echo_global_attributes(ds)
 
 
-@app.command(help="Show netcdf archive info", no_args_is_help=True)
+if IS_GRIB_AVAILABLE:
+
+    @app.command(help="Show GRIB archive info", no_args_is_help=True)
+    def grib(
+        path: pathlib.Path = typer.Argument(
+            ...,
+            dir_okay=False,
+            file_okay=True,
+            exists=True,
+            readable=True,
+            help="The path to the GRIB archive",
+        ),
+        mask_and_scale: bool = typer.Option(False, help="Whether to mask and scale the dataset"),
+        dimensions: bool = typer.Option(True, help="Whether to include 'Dimensions' in the output"),
+        coordinates: bool = typer.Option(True, help="Whether to include 'Coordinates' in the output"),
+        variables: bool = typer.Option(True, help="Whether to include 'Variables' in the output"),
+        variable_attributes: bool = typer.Option(
+            False, help="Whether to include the variable attributes in the output"
+        ),
+        global_attributes: bool = typer.Option(
+            False, help="Whether to include the global attributes in the output"
+        ),
+        full: bool = typer.Option(False, help="Display full output. Overrides any other option"),
+    ) -> int:
+        try:
+            ds = xr.open_dataset(filename_or_obj=path, mask_and_scale=mask_and_scale, engine="cfgrib")
+        except Exception as exc:
+            typer.echo(f"Couldn't open the zarr archive: {str(exc)}")
+            raise typer.Exit()
+        if full:
+            dimensions = coordinates = variables = variable_attributes = global_attributes = True
+        echo_dataset(
+            ds=ds,
+            dimensions=dimensions,
+            coordinates=coordinates,
+            variables=variables,
+            variable_attributes=variable_attributes,
+            global_attributes=global_attributes,
+        )
+        return 0
+
+
+@app.command(help="Show NetCDF archive info", no_args_is_help=True)
 def netcdf(
     path: pathlib.Path = typer.Argument(
         ...,
