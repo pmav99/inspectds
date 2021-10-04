@@ -12,6 +12,7 @@ runner = CliRunner()
 
 @pytest.mark.parametrize("archive", pathlib.Path("tests/data/").glob("*grib"))
 def test_grib(archive: pathlib.Path) -> None:
+    pytest.importorskip("cfgrib")
     result = runner.invoke(app, ["grib", archive.as_posix()])
     assert result.exit_code == 0
     assert "Dimensions" in result.stdout
