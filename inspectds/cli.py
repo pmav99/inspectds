@@ -1,4 +1,3 @@
-# pylint: disable=line-too-long
 # pylint: disable=too-many-arguments
 import pathlib
 
@@ -45,7 +44,8 @@ def echo_dataset(
     global_attributes: bool,
 ) -> None:
     if dimensions:
-        typer.echo("Dimensions: (%s)" % ", ".join(f"{key}: {value}" for (key, value) in ds.sizes.items()))
+        dimensions_text = ", ".join(f"{key}: {value}" for (key, value) in ds.sizes.items())
+        typer.echo(f"Dimensions: ({dimensions_text})")
     if coordinates:
         typer.echo(ds.coords)
     if variables:
