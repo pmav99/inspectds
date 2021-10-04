@@ -5,9 +5,11 @@
 
 A CLI utility to print metadata of datasets in various formats (e.g. NetCDF, zarr, GRIB etc)
 
-*powered by xarray*
+*powered by [xarray](https://github.com/pydata/xarray)*
 
 ## Installation
+
+The recommended way of installation is [pipx](https://github.com/pypa/pipx):
 
 ```
 pipx install 'git+https://github.com/pmav99/inspectds.git'
@@ -87,4 +89,12 @@ Coordinates:
 Data variables:
     z        (number, time, isobaricInhPa, latitude, longitude) float32 ...
     t        (number, time, isobaricInhPa, latitude, longitude) float32 ...
+```
+
+## Development
+
+```
+conda create inspectds_dev
+conda env update -n inspectds_dev -f environment.yml
+poetry install
 ```
