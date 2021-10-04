@@ -1,7 +1,10 @@
 ---
 default_language_version:
-  python: 'python3.8'
+  python: 'python3.9'
 fail_fast: true
+ci:
+  skip: ["prospector", "mypy"]
+
 
 repos:
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
@@ -24,20 +27,20 @@ repos:
       - id: "trailing-whitespace"
 
   - repo: "https://github.com/asottile/reorder_python_imports"
-    rev: "v2.5.0"
+    rev: "v2.6.0"
     hooks:
       - id: "reorder-python-imports"
         args:
-          - "--py38-plus"
+          - "--py39-plus"
           - "--separate-relative"
           - "--separate-from-import"
 
   - repo: "https://github.com/ambv/black"
-    rev: "21.5b2"
+    rev: "21.9b0"
     hooks:
       - id: "black"
-        language_version: "python3.8"
-        args: ["--line-length", "109", "--target-version", "py38"]
+        language_version: "python3.9"
+        args: ["--line-length", "109", "--target-version", "py39"]
 
   - repo: "local"
     hooks:
