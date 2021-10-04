@@ -1,5 +1,8 @@
 # inspectds
 
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/pmav99/inspectds)
+![CI](https://github.com/pmav99/inspectds/actions/workflows/run_tests.yml/badge.svg)
+
 A CLI utility to print metadata of datasets in various formats (e.g. NetCDF, zarr, GRIB etc)
 
 *powered by xarray*
