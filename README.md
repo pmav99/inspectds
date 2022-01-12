@@ -94,7 +94,7 @@ Data variables:
 ## Development
 
 ```
-conda create inspectds_dev
-conda env update -n inspectds_dev -f environment.yml
-poetry install
+conda create -n inspectds_dev --file ci/conda-Linux-64.lock
+conda activate inspectds_dev
+poetry install -E grib
 ```
