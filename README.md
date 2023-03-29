@@ -7,6 +7,13 @@ A CLI utility to print metadata of datasets in various formats (e.g. NetCDF, zar
 
 *powered by [xarray](https://github.com/pydata/xarray)*
 
+## Prerequisites
+
+You need the following binary dependencies:
+
+- Python >= 3.9
+- Optionally, [eccodes](https://github.com/ecmwf/eccodes), which  is necessary for GRIB support.
+
 ## Installation
 
 The recommended way of installation is [pipx](https://github.com/pypa/pipx):
@@ -23,7 +30,7 @@ pipx install 'git+https://github.com/pmav99/inspectds.git#egg=inspectds[grib]'
 
 ### Netcdf
 ```
-$ inspectds netcdf tests/data/example_1.nc
+$ inspectds tests/data/example_1.nc
 
 Dimensions: (lat: 5, level: 4, lon: 10, time: 1)
 Coordinates:
@@ -39,7 +46,7 @@ Data variables:
 ### Zarr
 
 ```
-$ inspectds zarr tests/data/store.zarr
+$ inspectds tests/data/store.zarr
 
 Dimensions: (lat: 19, lon: 36, time: 12)
 Coordinates:
@@ -50,34 +57,11 @@ Data variables:
     aaa      (lon, lat, time) int64 ...
 ```
 
-### More info:
-
+### GRIB
 ```
-inspectds --help
-inspectds grib --help   # requires extras
-inspectds netcdf --help
-inspectds zarr --help
-```
+$ inspectds tests/data/example.grib
 
-## GRIB support
-
-The GRIB format is supported but there are non-python dependencies which must be satisfied. More
-specifically, `libeccodes.so` must be available. If you did **not** install `eccodes` with your
-distro's package manager (e.g. you compiled from source or installed via `conda`) then you should
-set `LD_LIBRARY_PATH` before running `inspectds`. E.g.:
-
-```
-LD_LIBRARY_PATH="${CONDA_PREFIX}"/lib inspectds grib /path/to/example.grib
-
-# or
-export LD_LIBRARY_PATH="${CONDA_PREFIX}"/lib
-inspectds grib /path/to/example.grib
-```
-
-will result in:
-
-```
-Dimensions: (isobaricInhPa: 2, latitude: 3, longitude: 4, number: 2, time: 3)
+Dimensions: (number: 2, time: 3, isobaricInhPa: 2, latitude: 3, longitude: 4)
 Coordinates:
   * number         (number) int64 0 1
   * time           (time) datetime64[ns] 2017-01-01 ... 2017-01-02
@@ -91,10 +75,16 @@ Data variables:
     t        (number, time, isobaricInhPa, latitude, longitude) float32 ...
 ```
 
+### More info:
+
+```
+inspectds --help
+```
+
 ## Development
 
 ```
-conda create -n inspectds_dev --file ci/conda-Linux-64.lock
+conda create -n inspectds_dev --file requirements/conda-lock-linux-64
 conda activate inspectds_dev
 poetry install -E grib
 ```
