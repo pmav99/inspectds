@@ -81,7 +81,12 @@ if IS_GRIB_AVAILABLE:
         full: bool = typer.Option(False, help="Display full output. Overrides any other option"),
     ) -> int:
         try:
-            ds = xr.open_dataset(filename_or_obj=path, mask_and_scale=mask_and_scale, engine="cfgrib")
+            ds = xr.open_dataset(
+                filename_or_obj=path,
+                mask_and_scale=mask_and_scale,
+                engine="cfgrib",
+                backend_kwargs={"indexpath": ""},
+            )
         except Exception as exc:
             typer.echo(f"Couldn't open the zarr archive: {str(exc)}")
             raise typer.Exit()
