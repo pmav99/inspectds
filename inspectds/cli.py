@@ -1,11 +1,14 @@
-# pylint: disable=too-many-arguments
+from __future__ import annotations
+
+import enum
 import pathlib
+import typing
 
 import typer
 import xarray as xr
 
 try:
-    import cfgrib  # type: ignore  # pylint: disable=unused-import  # noqa
+    import cfgrib as cfgrib
 
     IS_GRIB_AVAILABLE = True
 except ImportError:
@@ -13,14 +16,44 @@ except ImportError:
 except RuntimeError:
     IS_GRIB_AVAILABLE = False
 
-app = typer.Typer(add_completion=False, invoke_without_command=False, add_help_option=True)
+SUPPORTED_DATASETS = {
+    "netcdf",
+    "zarr",
+}
+
+if IS_GRIB_AVAILABLE:
+    SUPPORTED_DATASETS = {
+        "grib",
+        "netcdf",
+        "zarr",
+    }
+
+    class DATASET_TYPE(enum.Enum):
+        AUTO = "auto"
+        GRIB = "grib"
+        NETCDF = "netcdf"
+        ZARR = "zarr"
+
+else:
+    SUPPORTED_DATASETS = {
+        "netcdf",
+        "zarr",
+    }
+
+    class DATASET_TYPE(enum.Enum):  # type: ignore[no-redef]
+        AUTO = "auto"
+        NETCDF = "netcdf"
+        ZARR = "zarr"
+
+
+app = typer.Typer(add_completion=False, invoke_without_command=True, add_help_option=True)
 
 
 def echo_variable_attributes(ds: xr.Dataset) -> None:
     lines = []
     lines.append("Variable Attributes:")
     for name, da in ds.variables.items():
-        dims = ", ".join(da.dims)
+        dims = ", ".join(da.dims)  # type: ignore[arg-type]
         lines.append(f"\t{da.dtype} {name}({dims})")
         for key, value in da.attrs.items():
             lines.append(f"\t\t{name}:{key} = {value}")
@@ -56,115 +89,76 @@ def echo_dataset(
         echo_global_attributes(ds)
 
 
-if IS_GRIB_AVAILABLE:
-
-    @app.command(help="Show GRIB archive info", no_args_is_help=True)
-    def grib(
-        path: pathlib.Path = typer.Argument(
-            ...,
-            dir_okay=False,
-            file_okay=True,
-            exists=True,
-            readable=True,
-            help="The path to the GRIB archive",
-        ),
-        mask_and_scale: bool = typer.Option(False, help="Whether to mask and scale the dataset"),
-        dimensions: bool = typer.Option(True, help="Whether to include 'Dimensions' in the output"),
-        coordinates: bool = typer.Option(True, help="Whether to include 'Coordinates' in the output"),
-        variables: bool = typer.Option(True, help="Whether to include 'Variables' in the output"),
-        variable_attributes: bool = typer.Option(
-            False, help="Whether to include the variable attributes in the output"
-        ),
-        global_attributes: bool = typer.Option(
-            False, help="Whether to include the global attributes in the output"
-        ),
-        full: bool = typer.Option(False, help="Display full output. Overrides any other option"),
-    ) -> int:
-        try:
-            ds = xr.open_dataset(
-                filename_or_obj=path,
-                mask_and_scale=mask_and_scale,
-                engine="cfgrib",
-                backend_kwargs={"indexpath": ""},
-            )
-        except Exception as exc:
-            typer.echo(f"Couldn't open the zarr archive: {str(exc)}")
-            raise typer.Exit()
-        if full:
-            dimensions = coordinates = variables = variable_attributes = global_attributes = True
-        echo_dataset(
-            ds=ds,
-            dimensions=dimensions,
-            coordinates=coordinates,
-            variables=variables,
-            variable_attributes=variable_attributes,
-            global_attributes=global_attributes,
-        )
-        return 0
+# Xarray can infer the datatype on its own.
+# Nevertheless:
+# 1. it raises RunTime warnings
+# 2. we want to pass extra arguments to `xr.open_dataset()`
+# 3. we want to allow the user to override the inferring
+# This is why we keep this function
+def infer_dataset_type(path: pathlib.Path) -> DATASET_TYPE:
+    if path.suffix == ".grib":
+        dataset_type = DATASET_TYPE.GRIB
+    elif path.is_dir() or path.suffix == ".zarr" or path.suffix == ".zip":
+        dataset_type = DATASET_TYPE.ZARR
+    else:
+        dataset_type = DATASET_TYPE.NETCDF
+    return dataset_type
 
 
-@app.command(help="Show NetCDF archive info", no_args_is_help=True)
-def netcdf(
+@app.command(help=f"Print a dataset's metadata. Supports: {SUPPORTED_DATASETS}", no_args_is_help=True)
+def inspect_dataset(
     path: pathlib.Path = typer.Argument(
         ...,
-        dir_okay=False,
+        dir_okay=True,
         file_okay=True,
         exists=True,
         readable=True,
-        help="The path to the netcdf archive",
+        help="The path to the dataset",
     ),
+    # fmt: off
+    dataset_type: DATASET_TYPE = typer.Option(DATASET_TYPE.AUTO.value, help="The dataset type. If 'auto', then it gets inferred from PATH"),
     mask_and_scale: bool = typer.Option(False, help="Whether to mask and scale the dataset"),
     dimensions: bool = typer.Option(True, help="Whether to include 'Dimensions' in the output"),
     coordinates: bool = typer.Option(True, help="Whether to include 'Coordinates' in the output"),
     variables: bool = typer.Option(True, help="Whether to include 'Variables' in the output"),
-    variable_attributes: bool = typer.Option(
-        False, help="Whether to include the variable attributes in the output"
-    ),
-    global_attributes: bool = typer.Option(
-        False, help="Whether to include the global attributes in the output"
-    ),
+    variable_attributes: bool = typer.Option(False, help="Whether to include the variable attributes in the output"),
+    global_attributes: bool = typer.Option( False, help="Whether to include the global attributes in the output"),
     full: bool = typer.Option(False, help="Display full output. Overrides any other option"),
+    # fmt: on
 ) -> int:
+    if dataset_type is DATASET_TYPE.AUTO:
+        dataset_type = infer_dataset_type(path)
+    open_dataset_kwargs: dict[str, typing.Any] = {}
+    if dataset_type == DATASET_TYPE.GRIB:
+        open_dataset_kwargs.update(
+            dict(
+                engine="cfgrib",
+                backend_kwargs={"indexpath": ""},
+            )
+        )
+    elif dataset_type == DATASET_TYPE.ZARR:
+        open_dataset_kwargs.update(
+            dict(
+                engine="zarr",
+                consolidated=False,
+            )
+        )
+    elif dataset_type == DATASET_TYPE.NETCDF:
+        open_dataset_kwargs.update(
+            dict(
+                engine="netcdf4",
+            )
+        )
+    else:
+        raise ValueError("WTF??? Unknown Dataset type...")
     try:
-        ds = xr.open_dataset(filename_or_obj=path, mask_and_scale=mask_and_scale)
+        ds = xr.open_dataset(
+            filename_or_obj=path,
+            mask_and_scale=mask_and_scale,
+            **open_dataset_kwargs,
+        )
     except Exception as exc:
-        typer.echo(f"Couldn't open the zarr archive: {str(exc)}")
-        raise typer.Exit()
-    if full:
-        dimensions = coordinates = variables = variable_attributes = global_attributes = True
-    echo_dataset(
-        ds=ds,
-        dimensions=dimensions,
-        coordinates=coordinates,
-        variables=variables,
-        variable_attributes=variable_attributes,
-        global_attributes=global_attributes,
-    )
-    return 0
-
-
-@app.command(help="Show zarr archive info", no_args_is_help=True)
-def zarr(
-    path: pathlib.Path = typer.Argument(
-        ..., dir_okay=True, file_okay=True, exists=True, readable=True, help="The path to the zarr archive"
-    ),
-    mask_and_scale: bool = typer.Option(False, help="Whether to mask and scale the dataset"),
-    consolidated: bool = typer.Option(False, help="whether to treat the archive as consolidated"),
-    dimensions: bool = typer.Option(True, help="Whether to include 'Dimensions' in the output"),
-    coordinates: bool = typer.Option(True, help="Whether to include 'Coordinates' in the output"),
-    variables: bool = typer.Option(True, help="Whether to include 'Variables' in the output"),
-    variable_attributes: bool = typer.Option(
-        False, help="Whether to include the variable attributes in the output"
-    ),
-    global_attributes: bool = typer.Option(
-        False, help="Whether to include the global attributes in the output"
-    ),
-    full: bool = typer.Option(False, help="Display full output. Overrides any other option"),
-) -> int:
-    try:
-        ds = xr.open_zarr(store=path, mask_and_scale=mask_and_scale, consolidated=consolidated)
-    except Exception as exc:
-        typer.echo(f"Couldn't open the zarr archive: {str(exc)}")
+        typer.echo(f"Couldn't open {dataset_type.value} dataset: {str(exc)}")
         raise typer.Exit()
     if full:
         dimensions = coordinates = variables = variable_attributes = global_attributes = True
