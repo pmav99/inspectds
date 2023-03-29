@@ -3,6 +3,7 @@ from __future__ import annotations
 import enum
 import pathlib
 import typing
+import warnings
 
 import typer
 import xarray as xr
@@ -128,6 +129,7 @@ def inspect_dataset(
 ) -> int:
     if dataset_type is DATASET_TYPE.AUTO:
         dataset_type = infer_dataset_type(path)
+
     open_dataset_kwargs: dict[str, typing.Any] = {}
     if dataset_type == DATASET_TYPE.GRIB:
         open_dataset_kwargs.update(
@@ -151,17 +153,34 @@ def inspect_dataset(
         )
     else:
         raise ValueError("WTF??? Unknown Dataset type...")
-    try:
-        ds = xr.open_dataset(
-            filename_or_obj=path,
-            mask_and_scale=mask_and_scale,
-            **open_dataset_kwargs,
-        )
-    except Exception as exc:
-        typer.echo(f"Couldn't open {dataset_type.value} dataset: {str(exc)}")
-        raise typer.Exit()
+
+    # Some netcdf files are not compatible with Xarray
+    # More specifically you can't have a dimension as a variable too.
+    # https://github.com/pydata/xarray/issues/1709#issuecomment-343714896
+    # When we find such variables we drop them:
+    drop_variables: list[str] = []
+    while True:
+        try:
+            ds = xr.open_dataset(
+                filename_or_obj=path,
+                mask_and_scale=mask_and_scale,
+                drop_variables=drop_variables,
+                **open_dataset_kwargs,
+            )
+        except Exception as exc:
+            if "already exists as a scalar variable" in str(exc):
+                to_be_dropped = str(exc).split("'")[-2]
+                drop_variables.append(to_be_dropped)
+                warnings.warn(f"Dropping scalar variable: {to_be_dropped}", RuntimeWarning)
+            else:
+                typer.echo(f"Couldn't open {dataset_type.value} dataset: {str(exc)}")
+                raise typer.Exit()
+        else:
+            break
+
     if full:
         dimensions = coordinates = variables = variable_attributes = global_attributes = True
+
     echo_dataset(
         ds=ds,
         dimensions=dimensions,
