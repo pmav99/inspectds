@@ -84,7 +84,8 @@ inspectds --help
 ## Development
 
 ```
-conda create -n inspectds_dev --file requirements/conda-lock-linux-64
+mamba env create --file ci/py3.11.yml --name inspectds_dev
 conda activate inspectds_dev
-poetry install -E grib
+make init
+make test
 ```
