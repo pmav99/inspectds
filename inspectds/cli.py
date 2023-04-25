@@ -97,7 +97,7 @@ def echo_dataset(
 # 3. we want to allow the user to override the inferring
 # This is why we keep this function
 def infer_dataset_type(path: pathlib.Path) -> DATASET_TYPE:
-    if path.suffix == ".grib":
+    if path.suffix in (".grib", ".grib2"):
         dataset_type = DATASET_TYPE.GRIB
     elif path.is_dir() or path.suffix == ".zarr" or path.suffix == ".zip":
         dataset_type = DATASET_TYPE.ZARR
