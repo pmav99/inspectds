@@ -3,6 +3,20 @@ name = "inspectds"
 version = "0.1.0"
 description = ""
 authors = ["Panos Mavrogiorgos <pmav99@gmail.com>"]
+license = "Unlicense"
+readme = "README.md"
+repository = "https://github.com/pmav99/inspectds.git"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: The Unlicense (Unlicense)",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Utilities",
+]
 
 [tool.poetry.scripts]
 inspectds = "inspectds.cli:app"
