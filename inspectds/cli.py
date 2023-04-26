@@ -17,11 +17,6 @@ except ImportError:
 except RuntimeError:
     IS_GRIB_AVAILABLE = False
 
-SUPPORTED_DATASETS = {
-    "netcdf",
-    "zarr",
-}
-
 if IS_GRIB_AVAILABLE:
     SUPPORTED_DATASETS = {
         "grib",
@@ -131,7 +126,7 @@ def inspect_dataset(
         dataset_type = infer_dataset_type(path)
 
     open_dataset_kwargs: dict[str, typing.Any] = {}
-    if dataset_type == DATASET_TYPE.GRIB:
+    if IS_GRIB_AVAILABLE and dataset_type == DATASET_TYPE.GRIB:
         open_dataset_kwargs.update(
             dict(
                 engine="cfgrib",
