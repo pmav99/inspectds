@@ -19,10 +19,15 @@ You need the following binary dependencies:
 The recommended way of installation is [pipx](https://github.com/pypa/pipx):
 
 ```
-pipx install 'git+https://github.com/pmav99/inspectds.git'
+pipx install inspectds
 
 # or if you want support for GRIB
 
+pipx install 'inspectds[grib]'
+```
+
+If you want to install the latest development version from git, then use:
+```
 pipx install 'git+https://github.com/pmav99/inspectds.git#egg=inspectds[grib]'
 ```
 
