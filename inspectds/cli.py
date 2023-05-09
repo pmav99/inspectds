@@ -93,7 +93,12 @@ def echo_dataset(
 # This is why we keep this function
 def infer_dataset_type(path: pathlib.Path) -> DATASET_TYPE:
     if path.suffix in (".grib", ".grib2"):
-        dataset_type = DATASET_TYPE.GRIB
+        if IS_GRIB_AVAILABLE:
+            dataset_type = DATASET_TYPE.GRIB
+        else:
+            msg = "GRIB file detected, but GRIB support is not available. Please install cfgrib."
+            typer.echo(msg)
+            raise typer.Exit(code=1)
     elif path.is_dir() or path.suffix == ".zarr" or path.suffix == ".zip":
         dataset_type = DATASET_TYPE.ZARR
     else:
