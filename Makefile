@@ -17,11 +17,7 @@ mypy:
 	dmypy run inspectds
 
 test:
-	python -m pytest -vlx --durations=10
-
-cov:
-	coverage erase
-	python -m pytest --cov=inpsectds --cov-report term-missing --durations=10
+	python -m pytest -vl --durations=10
 
 deps:
 	pre-commit run poetry-lock -a

@@ -106,16 +106,3 @@ select = [
 ignore = [
     "E501", # line-too-long
 ]
-
-[tool.coverage.run]
-plugins = ["covdefaults"]
-source = ["inspectds"]
-concurrency = [
-  "multiprocessing",
-  "thread",
-]
-parallel = true
-sigterm = true
-
-[tool.coverage.report]
-fail_under = 90
