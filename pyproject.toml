@@ -23,11 +23,11 @@ inspectds = "inspectds.cli:app"
 
 [tool.poetry.dependencies]
 python = ">=3.9"
+cfgrib = { version = ">=0.9", optional = true }
+netcdf4 = "*"
+typer = {version = ">=0.9.0", extras = ["all"]}
 xarray = "*"
 zarr = ">=2.8"
-typer = "*"
-netcdf4 = "*"
-cfgrib = { version = ">=0.9", optional = true }
 
 [tool.poetry.extras]
 grib = ["cfgrib"]
@@ -36,7 +36,6 @@ grib = ["cfgrib"]
 covdefaults = "*"
 mypy = ">=1"
 pytest = "*"
-pytest-cov = ">=3.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true

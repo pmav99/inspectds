@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 import enum
-import pathlib
-import typing
 import warnings
+from pathlib import Path
+from typing import Annotated
+from typing import Any
 
 import typer
 import xarray as xr
@@ -24,7 +23,7 @@ if IS_GRIB_AVAILABLE:
         "zarr",
     }
 
-    class DATASET_TYPE(enum.Enum):
+    class DATASET_TYPE(str, enum.Enum):
         AUTO = "auto"
         GRIB = "grib"
         NETCDF = "netcdf"
@@ -36,13 +35,10 @@ else:
         "zarr",
     }
 
-    class DATASET_TYPE(enum.Enum):  # type: ignore[no-redef]
+    class DATASET_TYPE(str, enum.Enum):  # type: ignore[no-redef]
         AUTO = "auto"
         NETCDF = "netcdf"
         ZARR = "zarr"
-
-
-app = typer.Typer(add_completion=False, invoke_without_command=True, add_help_option=True)
 
 
 def echo_variable_attributes(ds: xr.Dataset) -> None:
@@ -91,7 +87,7 @@ def echo_dataset(
 # 2. we want to pass extra arguments to `xr.open_dataset()`
 # 3. we want to allow the user to override the inferring
 # This is why we keep this function
-def infer_dataset_type(path: pathlib.Path) -> DATASET_TYPE:
+def infer_dataset_type(path: Path) -> DATASET_TYPE:
     if path.suffix in (".grib", ".grib2"):
         if IS_GRIB_AVAILABLE:
             dataset_type = DATASET_TYPE.GRIB
@@ -106,31 +102,31 @@ def infer_dataset_type(path: pathlib.Path) -> DATASET_TYPE:
     return dataset_type
 
 
-@app.command(help=f"Print a dataset's metadata. Supports: {SUPPORTED_DATASETS}", no_args_is_help=True)
+app = typer.Typer(
+    add_completion=False,
+    add_help_option=True,
+    help=f"Print a dataset's metadata. Supports: {SUPPORTED_DATASETS}",
+)
+
+
+@app.command(no_args_is_help=True)
 def inspect_dataset(
-    path: pathlib.Path = typer.Argument(
-        ...,
-        dir_okay=True,
-        file_okay=True,
-        exists=True,
-        readable=True,
-        help="The path to the dataset",
-    ),
     # fmt: off
-    dataset_type: DATASET_TYPE = typer.Option(DATASET_TYPE.AUTO.value, help="The dataset type. If 'auto', then it gets inferred from PATH"),
-    mask_and_scale: bool = typer.Option(False, help="Whether to mask and scale the dataset"),
-    dimensions: bool = typer.Option(True, help="Whether to include 'Dimensions' in the output"),
-    coordinates: bool = typer.Option(True, help="Whether to include 'Coordinates' in the output"),
-    variables: bool = typer.Option(True, help="Whether to include 'Variables' in the output"),
-    variable_attributes: bool = typer.Option(False, help="Whether to include the variable attributes in the output"),
-    global_attributes: bool = typer.Option( False, help="Whether to include the global attributes in the output"),
-    full: bool = typer.Option(False, help="Display full output. Overrides any other option"),
+    path: Annotated[Path, typer.Argument(dir_okay=True, file_okay=True, exists=True, readable=True, help="The path to the dataset")],
+    dataset_type: Annotated[DATASET_TYPE, typer.Option(help="The dataset type. If 'auto', then it gets inferred from PATH")] = DATASET_TYPE.AUTO,
+    mask_and_scale: Annotated[bool, typer.Option(help="Whether to mask and scale the dataset")] = False,
+    dimensions: Annotated[bool, typer.Option(help="Whether to include 'Dimensions' in the output")] = True,
+    coordinates: Annotated[bool, typer.Option(help="Whether to include 'Coordinates' in the output")] = True,
+    variables: Annotated[bool, typer.Option(help="Whether to include 'Variables' in the output")] = True,
+    variable_attributes: Annotated[bool, typer.Option(help="Whether to include the variable attributes in the output")] = False,
+    global_attributes: Annotated[bool, typer.Option(help="Whether to include the global attributes in the output")] =False,
+    full: Annotated[bool, typer.Option(help="Display full output. Overrides any other option")] = False,
     # fmt: on
 ) -> int:
-    if dataset_type is DATASET_TYPE.AUTO:
+    if dataset_type == DATASET_TYPE.AUTO:
         dataset_type = infer_dataset_type(path)
 
-    open_dataset_kwargs: dict[str, typing.Any] = {}
+    open_dataset_kwargs: dict[str, Any] = {}
     if IS_GRIB_AVAILABLE and dataset_type == DATASET_TYPE.GRIB:
         open_dataset_kwargs.update(
             dict(
@@ -174,7 +170,7 @@ def inspect_dataset(
                 warnings.warn(f"Dropping scalar variable: {to_be_dropped}", RuntimeWarning)
             else:
                 typer.echo(f"Couldn't open {dataset_type.value} dataset: {str(exc)}")
-                raise typer.Exit()
+                raise typer.Exit(code=33)
         else:
             break
 
