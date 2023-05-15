@@ -1,5 +1,6 @@
 import enum
 import warnings
+from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated
 from typing import Any
@@ -102,6 +103,12 @@ def infer_dataset_type(path: Path) -> DATASET_TYPE:
     return dataset_type
 
 
+def version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"inspectds version: {version('inspectds')}")
+        raise typer.Exit(code=0)
+
+
 app = typer.Typer(
     add_completion=False,
     add_help_option=True,
@@ -121,6 +128,7 @@ def inspect_dataset(
     variable_attributes: Annotated[bool, typer.Option(help="Whether to include the variable attributes in the output")] = False,
     global_attributes: Annotated[bool, typer.Option(help="Whether to include the global attributes in the output")] =False,
     full: Annotated[bool, typer.Option(help="Display full output. Overrides any other option")] = False,
+    version: Annotated[bool, typer.Option("--version", help="Display the version", callback=version_callback, is_eager=True)] = False,
     # fmt: on
 ) -> int:
     if dataset_type == DATASET_TYPE.AUTO:
