@@ -103,6 +103,33 @@ def infer_dataset_type(path: Path) -> DATASET_TYPE:
     return dataset_type
 
 
+def get_kwargs(dataset_type: DATASET_TYPE) -> dict[str, Any]:
+    open_dataset_kwargs: dict[str, Any] = {}
+    if IS_GRIB_AVAILABLE and dataset_type == DATASET_TYPE.GRIB:
+        open_dataset_kwargs.update(
+            dict(
+                engine="cfgrib",
+                backend_kwargs={"indexpath": ""},
+            )
+        )
+    elif dataset_type == DATASET_TYPE.ZARR:
+        open_dataset_kwargs.update(
+            dict(
+                engine="zarr",
+                consolidated=False,
+            )
+        )
+    elif dataset_type == DATASET_TYPE.NETCDF:
+        open_dataset_kwargs.update(
+            dict(
+                engine="netcdf4",
+            )
+        )
+    else:
+        raise ValueError("WTF??? Unknown Dataset type...")
+    return open_dataset_kwargs
+
+
 def version_callback(value: bool) -> None:
     if value:
         typer.echo(f"inspectds version: {version('inspectds')}")
@@ -134,29 +161,7 @@ def inspect_dataset(
     if dataset_type == DATASET_TYPE.AUTO:
         dataset_type = infer_dataset_type(path)
 
-    open_dataset_kwargs: dict[str, Any] = {}
-    if IS_GRIB_AVAILABLE and dataset_type == DATASET_TYPE.GRIB:
-        open_dataset_kwargs.update(
-            dict(
-                engine="cfgrib",
-                backend_kwargs={"indexpath": ""},
-            )
-        )
-    elif dataset_type == DATASET_TYPE.ZARR:
-        open_dataset_kwargs.update(
-            dict(
-                engine="zarr",
-                consolidated=False,
-            )
-        )
-    elif dataset_type == DATASET_TYPE.NETCDF:
-        open_dataset_kwargs.update(
-            dict(
-                engine="netcdf4",
-            )
-        )
-    else:
-        raise ValueError("WTF??? Unknown Dataset type...")
+    open_dataset_kwargs = get_kwargs(dataset_type=dataset_type)
 
     # Some netcdf files are not compatible with Xarray
     # More specifically you can't have a dimension as a variable too.
@@ -181,6 +186,10 @@ def inspect_dataset(
                 raise typer.Exit(code=33)
         else:
             break
+
+    # Make sure that all the coordinates are loaded
+    for coord in ds.coords:
+        ds[coord].load()
 
     if full:
         dimensions = coordinates = variables = variable_attributes = global_attributes = True
