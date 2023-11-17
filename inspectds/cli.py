@@ -1,6 +1,6 @@
 import enum
+import importlib.metadata
 import warnings
-from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated
 from typing import Any
@@ -132,7 +132,8 @@ def get_kwargs(dataset_type: DATASET_TYPE) -> dict[str, Any]:
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"inspectds version: {version('inspectds')}")
+        version = importlib.metadata.version("inspectds")
+        typer.echo(f"inspectds version: {version}")
         raise typer.Exit(code=0)
 
 
