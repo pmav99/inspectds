@@ -2,20 +2,22 @@ from __future__ import annotations
 
 import enum
 import importlib.metadata
+import importlib.util
 import warnings
 from pathlib import Path
 from typing import Any
+from typing import TYPE_CHECKING
 
 import typer
-import xarray as xr
 
-try:
-    import cfgrib as cfgrib
+from . import lazy_imports
 
+if TYPE_CHECKING:
+    import xarray
+
+if importlib.util.find_spec("cfgrib"):
     IS_GRIB_AVAILABLE = True
-except ImportError:
-    IS_GRIB_AVAILABLE = False
-except RuntimeError:
+else:
     IS_GRIB_AVAILABLE = False
 
 if IS_GRIB_AVAILABLE:
@@ -43,7 +45,7 @@ else:
         ZARR = "zarr"
 
 
-def echo_variable_attributes(ds: xr.Dataset) -> None:
+def echo_variable_attributes(ds: xarray.Dataset) -> None:
     lines = []
     lines.append("Variable Attributes:")
     for name, da in ds.variables.items():
@@ -54,7 +56,7 @@ def echo_variable_attributes(ds: xr.Dataset) -> None:
     typer.echo("\n".join(lines))
 
 
-def echo_global_attributes(ds: xr.Dataset) -> None:
+def echo_global_attributes(ds: xarray.Dataset) -> None:
     lines = []
     lines.append("Global attributes:")
     for key, value in ds.attrs.items():
@@ -63,7 +65,7 @@ def echo_global_attributes(ds: xr.Dataset) -> None:
 
 
 def echo_dataset(
-    ds: xr.Dataset,
+    ds: xarray.Dataset,
     dimensions: bool,
     coordinates: bool,
     variables: bool,
@@ -158,6 +160,7 @@ def inspect_dataset(
     full: bool = typer.Option(default=False, help="Display full output. Overrides any other option"),
     version: bool = typer.Option(False, "--version", help="Display the version", callback=version_callback, is_eager=True),
 ) -> int:  # fmt: skip
+    xr = lazy_imports.import_xarray()
     if dataset_type == DATASET_TYPE.AUTO:
         dataset_type = infer_dataset_type(path)
 
