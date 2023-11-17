@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import enum
 import importlib.metadata
 import warnings
 from pathlib import Path
-from typing import Annotated
 from typing import Any
 
 import typer
@@ -146,19 +147,17 @@ app = typer.Typer(
 
 @app.command(no_args_is_help=True)
 def inspect_dataset(
-    # fmt: off
-    path: Annotated[Path, typer.Argument(dir_okay=True, file_okay=True, exists=True, readable=True, help="The path to the dataset")],
-    dataset_type: Annotated[DATASET_TYPE, typer.Option(help="The dataset type. If 'auto', then it gets inferred from PATH")] = DATASET_TYPE.AUTO,
-    mask_and_scale: Annotated[bool, typer.Option(help="Whether to mask and scale the dataset")] = False,
-    dimensions: Annotated[bool, typer.Option(help="Whether to include 'Dimensions' in the output")] = True,
-    coordinates: Annotated[bool, typer.Option(help="Whether to include 'Coordinates' in the output")] = True,
-    variables: Annotated[bool, typer.Option(help="Whether to include 'Variables' in the output")] = True,
-    variable_attributes: Annotated[bool, typer.Option(help="Whether to include the variable attributes in the output")] = False,
-    global_attributes: Annotated[bool, typer.Option(help="Whether to include the global attributes in the output")] =False,
-    full: Annotated[bool, typer.Option(help="Display full output. Overrides any other option")] = False,
-    version: Annotated[bool, typer.Option("--version", help="Display the version", callback=version_callback, is_eager=True)] = False,
-    # fmt: on
-) -> int:
+    path: Path = typer.Argument(dir_okay=True, file_okay=True, exists=True, readable=True, help="The path to the dataset"),
+    dataset_type: DATASET_TYPE = typer.Option(default=DATASET_TYPE.AUTO, help="The dataset type. If 'auto', then it gets inferred from PATH"),
+    mask_and_scale: bool = typer.Option(False, help="Whether to mask and scale the dataset"),
+    dimensions: bool = typer.Option(default=True, help="Whether to include 'Dimensions' in the output"),
+    coordinates: bool = typer.Option(default=True, help="Whether to include 'Coordinates' in the output"),
+    variables: bool = typer.Option(default=True, help="Whether to include 'Variables' in the output"),
+    variable_attributes: bool = typer.Option(default=False, help="Whether to include the variable attributes in the output"),
+    global_attributes: bool = typer.Option(default=False, help="Whether to include the global attributes in the output"),
+    full: bool = typer.Option(default=False, help="Display full output. Overrides any other option"),
+    version: bool = typer.Option(False, "--version", help="Display the version", callback=version_callback, is_eager=True),
+) -> int:  # fmt: skip
     if dataset_type == DATASET_TYPE.AUTO:
         dataset_type = infer_dataset_type(path)
 
