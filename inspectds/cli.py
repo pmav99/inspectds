@@ -4,13 +4,12 @@ import enum
 import importlib.metadata
 import importlib.util
 import warnings
+from collections import abc
 from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
 import typer
-
-from . import lazy_imports
 
 if TYPE_CHECKING:
     import xarray
@@ -193,7 +192,7 @@ def inspect_dataset(
     full: bool = typer.Option(default=False, help="Display full output. Overrides any other option"),
     version: bool = typer.Option(False, "--version", help="Display the version", callback=version_callback, is_eager=True),
 ) -> int:  # fmt: skip
-    xr = lazy_imports.import_xarray()
+    import xarray as xr
 
     if dataset_type == DATASET_TYPE.AUTO:
         dataset_type = infer_dataset_type(path)
@@ -209,7 +208,7 @@ def inspect_dataset(
         "drop_variables": drop_variables,
     }
     dataset_type_open_kwargs = get_kwargs(dataset_type=dataset_type)
-    open_kwargs = default_open_kwargs | dataset_type_open_kwargs
+    open_kwargs: abc.Mapping[str, Any] = default_open_kwargs | dataset_type_open_kwargs
     while True:
         try:
             ds = xr.open_dataset(**open_kwargs)
