@@ -12,7 +12,7 @@ runner = CliRunner()
 @pytest.mark.parametrize(
     "path", [pytest.param(path, id=path.name) for path in pathlib.Path("tests/data/").glob("*")]
 )
-def test_grib(path: pathlib.Path) -> None:
+def test_cli(path: pathlib.Path) -> None:
     if path.suffix == ".grib":
         pytest.importorskip("cfgrib")
     if path.suffix == ".slf":
