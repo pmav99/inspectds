@@ -190,6 +190,7 @@ def inspect_dataset(
     variable_attributes: bool = typer.Option(default=False, help="Whether to include the variable attributes in the output"),
     global_attributes: bool = typer.Option(default=False, help="Whether to include the global attributes in the output"),
     full: bool = typer.Option(default=False, help="Display full output. Overrides any other option"),
+    load: bool = typer.Option(default=False, help="Load the data from disk. Only use on small datasets"),
     version: bool = typer.Option(False, "--version", help="Display the version", callback=version_callback, is_eager=True),
 ) -> int:  # fmt: skip
     import xarray as xr
@@ -226,6 +227,9 @@ def inspect_dataset(
     # Make sure that all the coordinates are loaded
     for coord in ds.coords:
         ds[coord].load()
+
+    if load:
+        ds = ds.load()
 
     if full:
         dimensions = coordinates = variables = variable_attributes = global_attributes = True
