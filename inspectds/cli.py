@@ -19,12 +19,19 @@ IS_SELAFIN_AVAILABLE = bool(importlib.util.find_spec("xarray_selafin"))
 
 
 if IS_GRIB_AVAILABLE and IS_SELAFIN_AVAILABLE:
-    SUPPORTED_DATASETS = {"netcdf", "zarr", "grib", "selafin"}
+    SUPPORTED_DATASETS = {
+        "netcdf",
+        "zarr",
+        "tiff",
+        "grib",
+        "selafin",
+    }
 
     class DATASET_TYPE(str, enum.Enum):
         AUTO = "auto"
         NETCDF = "netcdf"
         ZARR = "zarr"
+        TIFF = "tiff"
         GRIB = "grib"
         SELAFIN = "selafin"
 
@@ -32,6 +39,7 @@ elif IS_GRIB_AVAILABLE:
     SUPPORTED_DATASETS = {
         "netcdf",
         "zarr",
+        "tiff",
         "grib",
     }
 
@@ -39,27 +47,36 @@ elif IS_GRIB_AVAILABLE:
         AUTO = "auto"
         NETCDF = "netcdf"
         ZARR = "zarr"
+        TIFF = "tiff"
         GRIB = "grib"
 
 elif IS_SELAFIN_AVAILABLE:
-    SUPPORTED_DATASETS = {"netcdf", "zarr", "selafin"}
-
-    class DATASET_TYPE(str, enum.Enum):  # type: ignore[no-redef]
-        AUTO = "auto"
-        NETCDF = "netcdf"
-        ZARR = "zarr"
-        SELAFIN = "selafin"
-
-else:
     SUPPORTED_DATASETS = {
         "netcdf",
         "zarr",
+        "tiff",
+        "selafin",
     }
 
     class DATASET_TYPE(str, enum.Enum):  # type: ignore[no-redef]
         AUTO = "auto"
         NETCDF = "netcdf"
         ZARR = "zarr"
+        TIFF = "tiff"
+        SELAFIN = "selafin"
+
+else:
+    SUPPORTED_DATASETS = {
+        "netcdf",
+        "zarr",
+        "tiff",
+    }
+
+    class DATASET_TYPE(str, enum.Enum):  # type: ignore[no-redef]
+        AUTO = "auto"
+        NETCDF = "netcdf"
+        ZARR = "zarr"
+        TIFF = "tiff"
 
 
 def echo_variable_attributes(ds: xarray.Dataset) -> None:
@@ -125,6 +142,8 @@ def infer_dataset_type(path: Path) -> DATASET_TYPE:
             raise typer.Exit(code=1)
     elif path.is_dir() or path.suffix == ".zarr" or path.suffix == ".zip":
         dataset_type = DATASET_TYPE.ZARR
+    elif path.suffix in (".tif", ".tiff"):
+        dataset_type = DATASET_TYPE.TIFF
     else:
         dataset_type = DATASET_TYPE.NETCDF
     return dataset_type
@@ -144,6 +163,12 @@ def get_kwargs(dataset_type: DATASET_TYPE) -> dict[str, Any]:
             dict(
                 engine="zarr",
                 consolidated=False,
+            )
+        )
+    elif dataset_type == DATASET_TYPE.TIFF:
+        open_dataset_kwargs.update(
+            dict(
+                engine="rasterio",
             )
         )
     elif dataset_type == DATASET_TYPE.NETCDF:
