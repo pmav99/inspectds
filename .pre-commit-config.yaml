@@ -35,12 +35,12 @@ repos:
       - id: "python-use-type-annotations"
 
   - repo: "https://github.com/python-jsonschema/check-jsonschema"
-    rev: "0.29.3"
+    rev: "0.29.4"
     hooks:
       - id: "check-github-workflows"
 
   - repo: "https://github.com/asottile/reorder_python_imports"
-    rev: "v3.13.0"
+    rev: "v3.14.0"
     hooks:
       - id: "reorder-python-imports"
         args:
