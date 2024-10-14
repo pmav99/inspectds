@@ -3,7 +3,7 @@
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/pmav99/inspectds)
 ![CI](https://github.com/pmav99/inspectds/actions/workflows/run_tests.yml/badge.svg)
 
-A CLI utility to print metadata of datasets in various formats (e.g. NetCDF, zarr, GRIB etc)
+A CLI utility to print metadata of datasets in various formats (e.g. NetCDF, zarr, GRIB, tiff etc)
 
 _powered by [xarray](https://github.com/pydata/xarray)_
 
@@ -36,6 +36,10 @@ If you want to install the latest development version from git, then use:
 pipx install 'git+https://github.com/pmav99/inspectds.git#egg=inspectds[all]'
 ```
 
+Note: Support for GRIB also requires [eccodes](https://github.com/ecmwf/eccodes).
+This is not a python dependency!
+You need to install it via e.g. `apt` or `conda` or compile it from source or whatever.
+
 ## Usage
 
 ### Netcdf
@@ -66,6 +70,20 @@ Coordinates:
   * time     (time) datetime64[ns] 2001-01-31 2001-02-28 ... 2001-12-31
 Data variables:
     aaa      (lon, lat, time) int64 ...
+```
+
+### Tiff
+
+```
+inspectds ETOPO_2022_v1_60s_N90W180_surface.tif
+Dimensions: (band: 1, x: 21600, y: 10800)
+Coordinates:
+  * band         (band) int64 8B 1
+  * x            (x) float64 173kB -180.0 -180.0 -180.0 ... 180.0 180.0 180.0
+  * y            (y) float64 86kB 89.99 89.97 89.96 ... -89.96 -89.98 -89.99
+    spatial_ref  int64 8B 0
+Data variables:
+    band_data  (band, y, x) float32 933MB ...
 ```
 
 ### GRIB
