@@ -81,6 +81,7 @@ jobs:
           python -m pip cache info
 
       - run: "python -mpip install -r requirements/requirements-dev.txt"
+      - run: "python -mpip install ./"
       - run: python -m cfgrib selfcheck
       - run: mypy --version
       - run: mypy inspectds
