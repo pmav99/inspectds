@@ -16,6 +16,14 @@ You need the following binary dependencies:
 
 ## Installation
 
+### conda
+
+```
+conda install -c conda-forge inspectds
+```
+
+### PyPI
+
 The recommended way of installation is [pipx](https://github.com/pypa/pipx):
 
 ```
@@ -75,7 +83,7 @@ Data variables:
 ### Tiff
 
 ```
-inspectds ETOPO_2022_v1_60s_N90W180_surface.tif
+$ inspectds ETOPO_2022_v1_60s_N90W180_surface.tif
 Dimensions: (band: 1, x: 21600, y: 10800)
 Coordinates:
   * band         (band) int64 8B 1
