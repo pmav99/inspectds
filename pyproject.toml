@@ -22,7 +22,7 @@ classifiers = [
 inspectds = "inspectds.cli:app"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.11,<4.0"
 cfgrib = { version = ">=0.9", optional = true }
 netcdf4 = "*"
 rioxarray = "*"
@@ -72,10 +72,8 @@ filterwarnings = [
 ]
 
 [tool.mypy]
-python_version = "3.9"
-plugins = [
-    "numpy.typing.mypy_plugin"
-]
+python_version = "3.11"
+plugins = []
 show_error_codes = true
 show_column_numbers = true
 show_error_context = true
@@ -88,6 +86,10 @@ strict = true
 ignore_missing_imports = true
 
 # mypy per-module options:
+[[tool.mypy.overrides]]
+module = "zarr.*"
+follow_imports = "skip"
+
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = true

@@ -8,7 +8,7 @@ on:
       - master
     paths:
       - "**.py"
-      - ".github/workflows/test*.yml"
+      - ".github/workflows/run_tests.yml"
       - "pyproject.toml"
       - "poetry.lock"
       - "conda-lock.yml"
@@ -16,7 +16,7 @@ on:
   pull_request:
     paths:
       - "**.py"
-      - ".github/workflows/test*.yml"
+      - ".github/workflows/run_tests.yml"
       - "pyproject.toml"
       - "poetry.lock"
       - "conda-lock.yml"
@@ -31,13 +31,13 @@ jobs:
         os:
           - "ubuntu"
         python-version:
-          - "3.9"
-          - "3.10"
           - "3.11"
           - "3.12"
+          - "3.13"
+          - "3.14"
         include:
           - os: "macos"
-            python-version: "3.9"
+            python-version: "3.11"
     runs-on: "${{ matrix.os }}-latest"
     defaults:
       run:

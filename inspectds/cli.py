@@ -3,6 +3,7 @@ from __future__ import annotations
 import enum
 import importlib.metadata
 import importlib.util
+import re
 import warnings
 from collections import abc
 from pathlib import Path
@@ -16,6 +17,14 @@ if TYPE_CHECKING:
 
 IS_GRIB_AVAILABLE = bool(importlib.util.find_spec("cfgrib"))
 IS_SELAFIN_AVAILABLE = bool(importlib.util.find_spec("xarray_selafin"))
+
+
+def natural_sort_key(name: abc.Hashable) -> tuple[str | int, ...]:
+    return tuple(int(part) if part.isdigit() else part.casefold() for part in re.split(r"(\d+)", str(name)))
+
+
+def sorted_names(names: abc.Iterable[abc.Hashable]) -> list[abc.Hashable]:
+    return sorted(names, key=natural_sort_key)
 
 
 if IS_GRIB_AVAILABLE and IS_SELAFIN_AVAILABLE:
@@ -82,19 +91,42 @@ else:
 def echo_variable_attributes(ds: xarray.Dataset) -> None:
     lines = []
     lines.append("Variable Attributes:")
-    for name, da in ds.variables.items():
+    for name in sorted_names(ds.variables):
+        da = ds.variables[name]
         dims = ", ".join(da.dims)  # type: ignore[arg-type]
         lines.append(f"\t{da.dtype} {name}({dims})")
-        for key, value in da.attrs.items():
-            lines.append(f"\t\t{name}:{key} = {value}")
+        for key in sorted_names(da.attrs):
+            lines.append(f"\t\t{name}:{key} = {da.attrs[key]}")
+    typer.echo("\n".join(lines))
+
+
+def echo_coordinates(ds: xarray.Dataset) -> None:
+    from xarray.core import formatting
+
+    coord_names = sorted_names(ds.coords)
+    lines = ["Coordinates:"]
+    if coord_names:
+        max_name_length = max(len(str(name)) for name in coord_names)
+        col_width = max(max_name_length, 7) + 6
+        for name in coord_names:
+            lines.append(
+                formatting.summarize_variable(
+                    name,
+                    ds.variables[name],
+                    col_width=col_width,
+                    is_index=name in ds.xindexes,
+                )
+            )
+    else:
+        lines.append("    *empty*")
     typer.echo("\n".join(lines))
 
 
 def echo_global_attributes(ds: xarray.Dataset) -> None:
     lines = []
     lines.append("Global attributes:")
-    for key, value in ds.attrs.items():
-        lines.append(f"\t:{key} = {value}")
+    for key in sorted_names(ds.attrs):
+        lines.append(f"\t:{key} = {ds.attrs[key]}")
     typer.echo("\n".join(lines))
 
 
@@ -107,12 +139,13 @@ def echo_dataset(
     global_attributes: bool,
 ) -> None:
     if dimensions:
-        dimensions_text = ", ".join(f"{key}: {value}" for (key, value) in ds.sizes.items())
+        dimensions_text = ", ".join(f"{key}: {ds.sizes[key]}" for key in sorted_names(ds.sizes))
         typer.echo(f"Dimensions: ({dimensions_text})")
     if coordinates:
-        typer.echo(ds.coords)
+        echo_coordinates(ds)
     if variables:
-        typer.echo(ds.data_vars)
+        data_var_names = sorted_names(ds.data_vars)
+        typer.echo(ds[data_var_names].data_vars)
     if variable_attributes:
         echo_variable_attributes(ds)
     if global_attributes:
@@ -189,6 +222,14 @@ def get_kwargs(dataset_type: DATASET_TYPE) -> dict[str, Any]:
     return open_dataset_kwargs
 
 
+def get_filename_or_obj(path: Path, dataset_type: DATASET_TYPE) -> Any:
+    if dataset_type == DATASET_TYPE.ZARR and path.suffix == ".zip":
+        from zarr.storage import ZipStore
+
+        return ZipStore(path, mode="r")
+    return path
+
+
 def version_callback(value: bool) -> None:
     if value:
         version = importlib.metadata.version("inspectds")
@@ -228,8 +269,9 @@ def inspect_dataset(
     # https://github.com/pydata/xarray/issues/1709#issuecomment-343714896
     # When we find such variables we drop them:
     drop_variables: list[str] = []
+    filename_or_obj = get_filename_or_obj(path=path, dataset_type=dataset_type)
     default_open_kwargs = {
-        "filename_or_obj": path,
+        "filename_or_obj": filename_or_obj,
         "mask_and_scale": mask_and_scale,
         "drop_variables": drop_variables,
     }
