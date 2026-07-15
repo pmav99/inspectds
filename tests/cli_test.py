@@ -1,5 +1,6 @@
 import pathlib
 
+import numpy as np
 import pytest
 import xarray as xr
 from typer.testing import CliRunner
@@ -8,8 +9,93 @@ from inspectds.cli import app
 from inspectds.cli import DATASET_TYPE
 from inspectds.cli import echo_dataset
 from inspectds.cli import get_filename_or_obj
+from inspectds.cli import infer_dataset_type
+from inspectds.cli import is_icechunk_repo
 
 runner = CliRunner()
+
+
+def _create_materialized_archive(archive: pathlib.Path) -> None:
+    import icechunk as ic
+
+    repo = ic.Repository.create(ic.local_filesystem_storage(str(archive)))
+    session = repo.writable_session("main")
+    ds = xr.Dataset(
+        data_vars={"temperature": (("time", "lat"), np.arange(6.0).reshape(3, 2))},
+        coords={"time": [0, 1, 2], "lat": [10.0, 20.0]},
+        attrs={"title": "materialized demo"},
+    )
+    ds.to_zarr(session.store, zarr_format=3, consolidated=False)
+    session.commit("init")
+
+
+def _create_virtual_archive(archive: pathlib.Path, source_root: pathlib.Path) -> None:
+    import icechunk as ic
+    from obspec_utils.registry import ObjectStoreRegistry
+    from obstore.store import from_url
+    from virtualizarr import open_virtual_dataset
+    from virtualizarr.parsers import HDFParser
+
+    source_root.mkdir(parents=True, exist_ok=True)
+    prefix = f"file://{source_root}/"
+    nc = source_root / "data.nc"
+    ds = xr.Dataset(
+        data_vars={"temp": (("time", "lat"), np.arange(6.0).reshape(3, 2))},
+        coords={"time": [0, 1, 2], "lat": [10.0, 20.0]},
+        attrs={"title": "virtual demo"},
+    )
+    ds.to_netcdf(nc, engine="netcdf4", format="NETCDF4")
+
+    config = ic.RepositoryConfig.default()
+    container = ic.VirtualChunkContainer(prefix, ic.local_filesystem_store(str(source_root)))
+    config.set_virtual_chunk_container(container)
+    # icechunk >=2 wants an explicit no-auth sentinel for local containers; 1.x takes None.
+    sentinel = getattr(getattr(ic, "credentials", None), "LocalFileSystemAccess", None)
+    repo = ic.Repository.create(
+        ic.local_filesystem_storage(str(archive)),
+        config=config,
+        authorize_virtual_chunk_access={prefix: sentinel},
+    )
+    repo.save_config()
+
+    registry = ObjectStoreRegistry({prefix: from_url(prefix)})
+    vds = open_virtual_dataset(f"file://{nc}", registry=registry, parser=HDFParser())
+    session = repo.writable_session("main")
+    vds.vz.to_icechunk(session.store)
+    session.commit("virtual data")
+
+
+def test_materialized_icechunk_archive_is_inspected(tmp_path: pathlib.Path) -> None:
+    icechunk = pytest.importorskip("icechunk")
+    archive = tmp_path / "materialized"
+    _create_materialized_archive(archive)
+
+    assert is_icechunk_repo(archive)
+    assert infer_dataset_type(archive) == DATASET_TYPE.ICECHUNK
+    assert isinstance(get_filename_or_obj(archive, DATASET_TYPE.ICECHUNK), icechunk.IcechunkStore)
+
+    result = runner.invoke(app, [archive.as_posix(), "--full"])
+    assert result.exit_code == 0
+    assert "Dimensions" in result.stdout
+    assert "temperature" in result.stdout
+    assert "10.0 20.0" in result.stdout  # coordinate values are loaded
+
+
+def test_virtual_icechunk_archive_loads_coordinates(tmp_path: pathlib.Path) -> None:
+    pytest.importorskip("icechunk")
+    pytest.importorskip("virtualizarr")
+    pytest.importorskip("h5py")
+    pytest.importorskip("obstore")
+    pytest.importorskip("obspec_utils")
+    archive = tmp_path / "virtual"
+    _create_virtual_archive(archive, tmp_path / "src")
+
+    assert infer_dataset_type(archive) == DATASET_TYPE.ICECHUNK
+    result = runner.invoke(app, [archive.as_posix()])
+    assert result.exit_code == 0
+    # The coordinate chunks live in the source netcdf; showing their values proves
+    # the recorded file:// virtual-chunk container was authorized on open.
+    assert "10.0 20.0" in result.stdout
 
 
 def assert_line_order(stdout: str, *needles: str) -> None:

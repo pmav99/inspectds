@@ -24,6 +24,7 @@ inspectds = "inspectds.cli:app"
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
 cfgrib = { version = ">=0.9", optional = true }
+icechunk = { version = "*", optional = true }
 netcdf4 = "*"
 rioxarray = "*"
 typer = {version = ">=0.12.0"}
@@ -34,13 +35,16 @@ zarr = ">=2.8"
 [tool.poetry.extras]
 grib = ["cfgrib"]
 selafin = ["xarray-selafin"]
-all = ["cfgrib", "xarray-selafin"]
+icechunk = ["icechunk"]
+all = ["cfgrib", "xarray-selafin", "icechunk"]
 
 [tool.poetry.group.dev.dependencies]
 covdefaults = "*"
 mypy = ">=1"
 pytest = "*"
 ipython = "*"
+virtualizarr = "*"
+h5py = "*"
 
 [build-system]
 requires = ["poetry-core"]
@@ -88,6 +92,10 @@ ignore_missing_imports = true
 # mypy per-module options:
 [[tool.mypy.overrides]]
 module = "zarr.*"
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = "icechunk.*"
 follow_imports = "skip"
 
 [[tool.mypy.overrides]]

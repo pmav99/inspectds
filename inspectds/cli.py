@@ -3,6 +3,7 @@ from __future__ import annotations
 import enum
 import importlib.metadata
 import importlib.util
+import os
 import re
 import warnings
 from collections import abc
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 
 IS_GRIB_AVAILABLE = bool(importlib.util.find_spec("cfgrib"))
 IS_SELAFIN_AVAILABLE = bool(importlib.util.find_spec("xarray_selafin"))
+IS_ICECHUNK_AVAILABLE = bool(importlib.util.find_spec("icechunk"))
 
 
 def natural_sort_key(name: abc.Hashable) -> tuple[str | int, ...]:
@@ -27,15 +29,11 @@ def sorted_names(names: abc.Iterable[abc.Hashable]) -> list[abc.Hashable]:
     return sorted(names, key=natural_sort_key)
 
 
-if IS_GRIB_AVAILABLE and IS_SELAFIN_AVAILABLE:
-    SUPPORTED_DATASETS = {
-        "netcdf",
-        "zarr",
-        "tiff",
-        "grib",
-        "selafin",
-    }
-
+if TYPE_CHECKING:
+    # Static definition (all optional members present) so type checkers can see
+    # DATASET_TYPE.GRIB/SELAFIN/ICECHUNK. The runtime enum below only contains the
+    # members whose optional dependency is installed. Access to the optional ones
+    # is always guarded by the matching IS_*_AVAILABLE flag.
     class DATASET_TYPE(str, enum.Enum):
         AUTO = "auto"
         NETCDF = "netcdf"
@@ -43,49 +41,19 @@ if IS_GRIB_AVAILABLE and IS_SELAFIN_AVAILABLE:
         TIFF = "tiff"
         GRIB = "grib"
         SELAFIN = "selafin"
-
-elif IS_GRIB_AVAILABLE:
-    SUPPORTED_DATASETS = {
-        "netcdf",
-        "zarr",
-        "tiff",
-        "grib",
-    }
-
-    class DATASET_TYPE(str, enum.Enum):  # type: ignore[no-redef]
-        AUTO = "auto"
-        NETCDF = "netcdf"
-        ZARR = "zarr"
-        TIFF = "tiff"
-        GRIB = "grib"
-
-elif IS_SELAFIN_AVAILABLE:
-    SUPPORTED_DATASETS = {
-        "netcdf",
-        "zarr",
-        "tiff",
-        "selafin",
-    }
-
-    class DATASET_TYPE(str, enum.Enum):  # type: ignore[no-redef]
-        AUTO = "auto"
-        NETCDF = "netcdf"
-        ZARR = "zarr"
-        TIFF = "tiff"
-        SELAFIN = "selafin"
+        ICECHUNK = "icechunk"
 
 else:
-    SUPPORTED_DATASETS = {
-        "netcdf",
-        "zarr",
-        "tiff",
-    }
+    _DATASET_TYPES = {"AUTO": "auto", "NETCDF": "netcdf", "ZARR": "zarr", "TIFF": "tiff"}
+    if IS_GRIB_AVAILABLE:
+        _DATASET_TYPES["GRIB"] = "grib"
+    if IS_SELAFIN_AVAILABLE:
+        _DATASET_TYPES["SELAFIN"] = "selafin"
+    if IS_ICECHUNK_AVAILABLE:
+        _DATASET_TYPES["ICECHUNK"] = "icechunk"
+    DATASET_TYPE = enum.Enum("DATASET_TYPE", _DATASET_TYPES, type=str)
 
-    class DATASET_TYPE(str, enum.Enum):  # type: ignore[no-redef]
-        AUTO = "auto"
-        NETCDF = "netcdf"
-        ZARR = "zarr"
-        TIFF = "tiff"
+SUPPORTED_DATASETS = {member.value for member in DATASET_TYPE if member.name != "AUTO"}
 
 
 def echo_variable_attributes(ds: xarray.Dataset) -> None:
@@ -152,6 +120,37 @@ def echo_dataset(
         echo_global_attributes(ds)
 
 
+def _silence_icechunk_warning() -> None:
+    if "ICECHUNK_LOG" not in os.environ:
+        import icechunk as ic
+
+        ic.set_logs_filter("warn,icechunk_arrow_object_store=error")
+
+
+def is_icechunk_repo(path: Path) -> bool:
+    import icechunk as ic
+
+    _silence_icechunk_warning()
+    return bool(ic.Repository.exists(ic.local_filesystem_storage(str(path))))
+
+
+def open_icechunk_store(path: Path) -> Any:
+    import icechunk as ic
+
+    _silence_icechunk_warning()
+    storage = ic.local_filesystem_storage(str(path))
+    config = ic.Repository.fetch_config(storage)
+    prefixes = (config.virtual_chunk_containers or {}) if config is not None else {}
+    # Authorize the recorded local (file://) virtual-chunk containers so that a
+    # virtualizarr-backed archive can resolve its references (e.g. to load
+    # coordinate values) from the source files. icechunk >=2 wants an explicit
+    # no-auth sentinel for local containers; 1.x has no such type and takes None.
+    sentinel = getattr(getattr(ic, "credentials", None), "LocalFileSystemAccess", None)
+    authorized: dict[str, Any] = {prefix: sentinel for prefix in prefixes if prefix.startswith("file://")}
+    repo = ic.Repository.open(storage, authorize_virtual_chunk_access=authorized)
+    return repo.readonly_session("main").store
+
+
 # Xarray can infer the datatype on its own.
 # Nevertheless:
 # 1. it raises RunTime warnings
@@ -173,6 +172,8 @@ def infer_dataset_type(path: Path) -> DATASET_TYPE:
             msg = "SELAFIN file detected, but SELAFIN support is not available. Please install 'xarray-selafin'."
             typer.echo(msg)
             raise typer.Exit(code=1)
+    elif path.is_dir() and IS_ICECHUNK_AVAILABLE and is_icechunk_repo(path):
+        dataset_type = DATASET_TYPE.ICECHUNK
     elif path.is_dir() or path.suffix == ".zarr" or path.suffix == ".zip":
         dataset_type = DATASET_TYPE.ZARR
     elif path.suffix in (".tif", ".tiff"):
@@ -191,7 +192,9 @@ def get_kwargs(dataset_type: DATASET_TYPE) -> dict[str, Any]:
                 backend_kwargs={"indexpath": ""},
             )
         )
-    elif dataset_type == DATASET_TYPE.ZARR:
+    elif dataset_type == DATASET_TYPE.ZARR or (
+        IS_ICECHUNK_AVAILABLE and dataset_type == DATASET_TYPE.ICECHUNK
+    ):
         open_dataset_kwargs.update(
             dict(
                 engine="zarr",
@@ -223,6 +226,8 @@ def get_kwargs(dataset_type: DATASET_TYPE) -> dict[str, Any]:
 
 
 def get_filename_or_obj(path: Path, dataset_type: DATASET_TYPE) -> Any:
+    if IS_ICECHUNK_AVAILABLE and dataset_type == DATASET_TYPE.ICECHUNK:
+        return open_icechunk_store(path)
     if dataset_type == DATASET_TYPE.ZARR and path.suffix == ".zip":
         from zarr.storage import ZipStore
 
@@ -277,26 +282,33 @@ def inspect_dataset(
     }
     dataset_type_open_kwargs = get_kwargs(dataset_type=dataset_type)
     open_kwargs: abc.Mapping[str, Any] = default_open_kwargs | dataset_type_open_kwargs
-    while True:
-        try:
-            ds = xr.open_dataset(**open_kwargs)
-        except Exception as exc:
-            if "already exists as a scalar variable" in str(exc):
-                to_be_dropped = str(exc).split("'")[-2]
-                drop_variables.append(to_be_dropped)
-                warnings.warn(f"Dropping scalar variable: {to_be_dropped}", RuntimeWarning)
+    # Zarr v3 stores that use numcodecs codecs (e.g. blosc/zlib-compressed data, or
+    # virtualizarr-backed icechunk archives) emit a ZarrUserWarning on open/read. It
+    # is irrelevant when only inspecting metadata, so silence it.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="Numcodecs codecs are not in the Zarr version 3 specification"
+        )
+        while True:
+            try:
+                ds = xr.open_dataset(**open_kwargs)
+            except Exception as exc:
+                if "already exists as a scalar variable" in str(exc):
+                    to_be_dropped = str(exc).split("'")[-2]
+                    drop_variables.append(to_be_dropped)
+                    warnings.warn(f"Dropping scalar variable: {to_be_dropped}", RuntimeWarning)
+                else:
+                    typer.echo(f"Couldn't open {dataset_type.value} dataset: {str(exc)}")
+                    raise typer.Exit(code=33)
             else:
-                typer.echo(f"Couldn't open {dataset_type.value} dataset: {str(exc)}")
-                raise typer.Exit(code=33)
-        else:
-            break
+                break
 
-    # Make sure that all the coordinates are loaded
-    for coord in ds.coords:
-        ds[coord].load()
+        # Make sure that all the coordinates are loaded
+        for coord in ds.coords:
+            ds[coord].load()
 
-    if load:
-        ds = ds.load()
+        if load:
+            ds = ds.load()
 
     if full:
         dimensions = coordinates = variables = variable_attributes = global_attributes = True

@@ -3,7 +3,7 @@
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/pmav99/inspectds)
 ![CI](https://github.com/pmav99/inspectds/actions/workflows/run_tests.yml/badge.svg)
 
-A CLI utility to print metadata of datasets in various formats (e.g. NetCDF, zarr, GRIB, tiff etc)
+A CLI utility to print metadata of datasets in various formats (e.g. NetCDF, zarr, icechunk, GRIB, tiff etc)
 
 _powered by [xarray](https://github.com/pydata/xarray)_
 
@@ -30,11 +30,12 @@ The recommended way of installation is [pipx](https://github.com/pypa/pipx):
 pipx install inspectds
 ```
 
-or if you want support for GRIB, SELAFIN or both:
+or if you want support for GRIB, SELAFIN, icechunk or all of them:
 
 ```
 pipx install 'inspectds[grib]'
 pipx install 'inspectds[selafin]'
+pipx install 'inspectds[icechunk]'
 pipx install 'inspectds[all]'
 ```
 
@@ -78,6 +79,23 @@ Coordinates:
   * time     (time) datetime64[ns] 2001-01-31 2001-02-28 ... 2001-12-31
 Data variables:
     aaa      (lon, lat, time) int64 ...
+```
+
+### Icechunk
+
+A directory that is an [icechunk](https://icechunk.io) repository is detected
+automatically and its `main` branch is inspected. Both materialized archives and
+virtualizarr-backed ones (references into source files) are supported.
+
+```
+$ inspectds ./my_archive
+
+Dimensions: (lat: 2, time: 3)
+Coordinates:
+  * lat      (lat) float64 16B 10.0 20.0
+  * time     (time) int64 24B 0 1 2
+Data variables:
+    temperature  (time, lat) float64 48B ...
 ```
 
 ### Tiff
@@ -133,21 +151,22 @@ $ inspectds --help
 
  Usage: inspectds [OPTIONS] PATH
 
-╭─ Arguments ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ *    path      PATH  The path to the dataset [default: None] [required]                                                                                                                                                                                     │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --dataset-type                                       [auto|netcdf|zarr|grib|selafin]  The dataset type. If 'auto', then it gets inferred from PATH [default: auto]                                                                                          │
-│ --mask-and-scale         --no-mask-and-scale                                          Whether to mask and scale the dataset [default: no-mask-and-scale]                                                                                                    │
-│ --dimensions             --no-dimensions                                              Whether to include 'Dimensions' in the output [default: dimensions]                                                                                                   │
-│ --coordinates            --no-coordinates                                             Whether to include 'Coordinates' in the output [default: coordinates]                                                                                                 │
-│ --variables              --no-variables                                               Whether to include 'Variables' in the output [default: variables]                                                                                                     │
-│ --variable-attributes    --no-variable-attributes                                     Whether to include the variable attributes in the output [default: no-variable-attributes]                                                                            │
-│ --global-attributes      --no-global-attributes                                       Whether to include the global attributes in the output [default: no-global-attributes]                                                                                │
-│ --full                   --no-full                                                    Display full output. Overrides any other option [default: no-full]                                                                                                    │
-│ --version                                                                             Display the version                                                                                                                                                   │
-│ --help                                                                                Show this message and exit.                                                                                                                                           │
-╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Arguments ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ *    path      PATH  The path to the dataset [required]                                                                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --dataset-type                        [auto|netcdf|zarr|tiff|grib|selafin]  The dataset type. If 'auto', then it gets inferred from PATH [default: auto]               │
+│ --mask-and-scale         --no-mask-and-scale                                Whether to mask and scale the dataset [default: no-mask-and-scale]                         │
+│ --dimensions             --no-dimensions                                    Whether to include 'Dimensions' in the output [default: dimensions]                        │
+│ --coordinates            --no-coordinates                                   Whether to include 'Coordinates' in the output [default: coordinates]                      │
+│ --variables              --no-variables                                     Whether to include 'Variables' in the output [default: variables]                          │
+│ --variable-attributes    --no-variable-attributes                           Whether to include the variable attributes in the output [default: no-variable-attributes] │
+│ --global-attributes      --no-global-attributes                             Whether to include the global attributes in the output [default: no-global-attributes]     │
+│ --full                   --no-full                                          Display full output. Overrides any other option [default: no-full]                         │
+│ --load                   --no-load                                          Load the data from disk. Only use on small datasets [default: no-load]                     │
+│ --version                                                                   Display the version                                                                        │
+│ --help                                                                      Show this message and exit.                                                                │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Development
